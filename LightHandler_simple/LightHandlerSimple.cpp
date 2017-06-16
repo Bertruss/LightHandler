@@ -2,10 +2,10 @@
 // for Arduino or Arduino library compatible devices  
 #include "Arduino.h"
 #include "Wire.h"
-#include "LightHandler_Simple.h"
+#include "LightHandlerSimple.h"
 
-//scrubs int math for storage in uint8_t
-void LightHandler_Simple::Brightnesslimit(int &x) {
+//scrubs int math for storage in byte
+void LightHandlerSimple::Brightnesslimit(int &x) {
 	if(x < 0){
 		x = 0;
 	} else if(x > 255){
@@ -13,75 +13,79 @@ void LightHandler_Simple::Brightnesslimit(int &x) {
 	}
 }
 
-void LightHandler_Simple::lightWaveSin() {
+void LightHandlerSimple::lightWaveSin() {
 	int brightness;
 	float phase;
 	for (int cnt = 0; cnt < NumLED; cnt++) {
-		if(sinMode){
+		if(sineMode){
 			phase = 0 + (1.0 / cnt) * ((float)cnt)/Wavelength;
 		} else {
-			phase = 0 + phaseSeperation * ((float)cnt)*(abs(Wavelength)/Wavelength);//wavelength is used in this case simply to preserve the direction of the wave 
+			phase = 0 + phaseSeparation * ((float)cnt)*(abs(Wavelength)/Wavelength);//wavelength is used in this case simply to preserve the direction of the wave 
 		}
 		brightness = range * sin(PI*(phase) + PI* millis() / (1000)*speed) + midInt;
 		Brightnesslimit(brightness);
-		brightness[cnt] = brightness;
+		Brightness[cnt] = (byte)brightness;
 	}
 }
 
 //random flashes
 //follows a (-(x-1)^2 + 1) curve for growing brighter then fading.
 //reaches peak brightness at blipDuration/2
-void LightHandler_Simple::blip() {
+void LightHandlerSimple::blip() {
 	int brightness;
 	unsigned long timeSinceBlipTrue;
 	unsigned long currentTime = millis();
-	int variance = range - midInt;
+	int variance = abs(range + midInt);
 	for (int cnt = 0; cnt < NumLED; cnt++) {
-		timeSinceBlipTrue = currentTime - lastblip[cnt];
 		bool blip = currentTime > (blipRand[cnt] + lastBlip[cnt]);
 		if(blip){
-			if(timeSinceBlipTrue > (blipRand[cnt] + lastBlip[cnt] + blipDuration)){
-				brightness[cnt] = midInt;
+			timeSinceBlipTrue = currentTime - (lastBlip[cnt] + blipRand[cnt]);
+			if(timeSinceBlipTrue > blipDuration){
+				Brightness[cnt] = (byte)midInt;
 				lastBlip[cnt] = currentTime;
 				blipRand[cnt] = random(0, TTblip);
 			}else{
-				brightness = variance*(-pow(((float)timeSinceBlipTrue/(blipDuration/2) - 1), 2) + 1) + midInt; //follows a (-(x-1)^2 + 1) curve for growing brighter then fading.
+				brightness = variance*(-pow(((float)timeSinceBlipTrue/(blipDuration/2) - 1), 2) + 1) + midInt; //follows a (-(x-1)^2 + 1) curve for growing brighter then fading
 				Brightnesslimit(brightness);
-				brightness[cnt] = brightness;	
+				Brightness[cnt] = (byte)brightness;	
 			}
 		}
 	}
 }
 
-void LightHandler::lightIntensityMod(int x) {
+void LightHandlerSimple::setTimeToBlip(int x){
+	
+}
+
+void LightHandlerSimple::lightIntensityMod(int x) {
 	int temp = midInt + x;
 	Brightnesslimit(temp);
 	midInt = temp;
 }
 
-void setSineMode(bool x){
+void LightHandlerSimple::setSineMode(bool x){
 	sineMode = x;
 }
 
-void setPhaseSeparation(float x){
+void LightHandlerSimple::setPhaseSeparation(float x){
 	phaseSeparation = x;
 }
 	
-void setSineSpeed(float x){
+void LightHandlerSimple::setSineSpeed(float x){
 	speed = x; 
 }
 
-void LightHandler:: setMidIntensity(int x) {
+void LightHandlerSimple::setMidIntensity(int x) {
 	Brightnesslimit(x);
-	midInt = x;
+	midInt = (byte)x;
 }
 
-void LightHandler::setRange(int x) {
+void LightHandlerSimple::setRange(int x) {
 	Brightnesslimit(x);
-	range = x;
+	range = (byte)x;
 }
 
-void LightHandler_Simple::lightingSettingsPresets(int set) {
+void LightHandlerSimple::lightingSettingsPresets(int set) {
 	switch (set) {
 	case DEFAULT_SET: //default
 		reset();
@@ -89,7 +93,7 @@ void LightHandler_Simple::lightingSettingsPresets(int set) {
 		break;
 	case SIN_WAVE_FORWARD: //sin wave: move up
 		sineMode = true;
-		WaveLength = 1.0;
+		Wavelength = 1.0;
 		AnimationMode = 1;
 		break;
 	case SIN_WAVE_REV: //sin wave: move down
@@ -111,7 +115,6 @@ void LightHandler_Simple::lightingSettingsPresets(int set) {
 		AnimationMode = 2;
 		break;
 	case ZERO: //set to 0
-		phase = 0;
 		speed = 0;
 		range = 0;
 		midInt = 0;
@@ -123,17 +126,17 @@ void LightHandler_Simple::lightingSettingsPresets(int set) {
 	}
 }
 
-void LightHandler_Simple::applyState() {
+void LightHandlerSimple::applyState() {
 	for (int cnt = 0; cnt < NumLED; cnt++) {
-		analogWrite(LEDPin[cnt], brightness[cnt]);
+		analogWrite(LEDPin[cnt], Brightness[cnt]);
 	}
 }
 
-void LightHandler_Simple::lightingFunc(int set) {
+void LightHandlerSimple::lightingFunc(int set) {
 	switch (set) {
 	case CONST_INTENSITY: //constant 
 		for (int cnt = 0; cnt < NumLED; cnt++) {
-			brightness = midInt;
+			Brightness[cnt] = midInt;
 		}
 
 		break;
@@ -148,24 +151,24 @@ void LightHandler_Simple::lightingFunc(int set) {
 	}
 }
 
-void LightHandler_Simple::getGlobalLightSetting(){
+void LightHandlerSimple::getGlobalLightSetting(){
 	return GlobalLightSetting;
 }
 
-void LightHandler_Simple::getAnimationMode(){
+void LightHandlerSimple::getAnimationMode(){
 	return AnimationMode;
 }
 
-void LightHandler_Simple::setLightPreset(int x){
+void LightHandlerSimple::setLightPreset(int x){
 	GlobalLightSetting = x;
 	lightingSettingsPresets(x);
 	}
 	
-void LightHandler_Simple::setWavelength(float x){
+void LightHandlerSimple::setWavelength(float x){
 	Wavelength = x;
 }
 	
-void LightHandler_Simple::reset(){
+void LightHandlerSimple::reset(){
 		speed = 1;
 		range = 35;
 		midInt = 45;
@@ -173,23 +176,39 @@ void LightHandler_Simple::reset(){
 }
 
 	//constructor
-LightHandler_Simple::LightHandler_Simple(const int *LEDPinArray, ,const int &NumLEDin ) {
+LightHandlerSimple::LightHandlerSimple(const int *LEDPinArray,const int &NumLEDin) {
 		unsigned long currenttime = millis();
 		LEDPin = LEDPinArray;
 		NumLED = NumLEDin;
-		lastBlip = new unsigned long[NumLED];
-		blipRand = new unsigned int[NumLED];
+		lastBlip = new unsigned long[NumLEDin];
+		blipRand = new unsigned int[NumLEDin];
+		Brightness = new byte[NumLEDin];
 		for (int cnt = 0; cnt < NumLED; cnt++) {
 			pinMode(LEDPin[cnt], OUTPUT);
+			Brightness[cnt] = 0;
+			lastBlip[cnt] = currenttime;
+			blipRand[cnt] = random(0, TTblip);
+		}
+	}
+
+LightHandlerSimple::LightHandlerSimple(const int &NumLEDin) {
+		unsigned long currenttime = millis();
+		NumLED = NumLEDin;
+		lastBlip = new unsigned long[NumLEDin];
+		blipRand = new unsigned int[NumLEDin];
+		Brightness = new byte[NumLEDin];
+		for (int cnt = 0; cnt < NumLED; cnt++) {
+			pinMode(LEDPin[cnt], OUTPUT);
+			Brightness[cnt] = 0;
 			lastBlip[cnt] = currenttime;
 			blipRand[cnt] = random(0, TTblip);
 		}
 	}
 
 	//default constructor
-LightHandler_Simple::LightHandler_Simple() {}
+LightHandlerSimple::LightHandlerSimple() {}
 
-void LightHandler_Simple::execute() {
+void LightHandlerSimple::execute() {
 		lightingFunc(AnimationMode);
 		applyState();
 	}
